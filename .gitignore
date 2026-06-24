@@ -1,0 +1,32 @@
+# ── Raw input data (large files, licensed sources) ────────────────────────────
+data/
+
+# ── Intermediate panel files (superseded by panel_analysis.csv) ───────────────
+panel_merged.csv
+panel_skeleton.csv
+
+# ── Raw downloaded covariate files ────────────────────────────────────────────
+acs_covariates.csv
+bls_laus_covariates.csv
+hrsa_hpsa_covariates.csv
+
+# ── Claude Code temp/backup files ─────────────────────────────────────────────
+*.tmp.*
+
+# ── Claude Code session data ──────────────────────────────────────────────────
+.claude/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# ── R ─────────────────────────────────────────────────────────────────────────
+.RData
+.Rhistory
+.Rproj.user/
+*.Rproj
+
+# ── Diagnostic / scratch scripts ──────────────────────────────────────────────
+diag_panel.R
