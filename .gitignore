@@ -30,3 +30,8 @@ __pycache__/
 
 # ── Diagnostic / scratch scripts ──────────────────────────────────────────────
 diag_panel.R
+
+# ── Intermediate data files (large, reproducible from scripts) ─────────────────
+matched_west_*.csv
+panel_west_*.csv
+panel_robustness_*.csv

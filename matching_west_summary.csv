@@ -1,0 +1,4 @@
+tag,label,min_acres,n_treated,n_control,g2015,g2016,g2017,g2018,g2019
+T1_moderate_1k,"Moderate+ (>=1,000 ac)",1000,240,41,94,67,36,33,10
+T2_large_5k,"Large+    (>=5,000 ac)",5000,182,68,51,49,40,35,7
+T3_verylarge_25k,"Very Large (>=25,000 ac)",25000,90,60,19,19,30,20,2
