@@ -1,0 +1,4 @@
+tag,label,min_acres,n_treated,n_unique_controls,mean_pct_burned,p90_pct_burned
+T1_moderate_1k,"Moderate+ (>=1,000 ac)",1000,94,29,6.7,6.15
+T2_large_5k,"Large+    (>=5,000 ac)",5000,51,32,11.5,7.51
+T3_verylarge_25k,"Very Large (>=25,000 ac)",25000,19,17,24.0,18.49
