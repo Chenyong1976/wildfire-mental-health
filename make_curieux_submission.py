@@ -125,9 +125,6 @@ def mla(text):
 FIG_MAP = {
     "1": "fig_common_support.png",
     "2": "fig_depression_coefplot.png",
-    "3": "fig_baseline_eventstudy.png",
-    "4": "fig_eventstudy.png",
-    "5": "fig_rucc.png",
 }
 
 def insert_figure(doc, num, caption):
@@ -158,12 +155,25 @@ def build_table1(doc):
     cols = ["Variable", "Treated (N=81)\nMean (SD)", "Control (N=12)\nMean (SD)", "Difference", "p-value"]
     rows_data = []
 
+    skip_vars = {"Suicide rate (per 100,000)", "Overdose rate (per 100,000)"}
+
     with open(os.path.join(ROOT, "summary_stats_table.csv"), newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for r in reader:
-            if r['panel_header'].strip() == 'True':
-                rows_data.append(("PANEL", r['Variable']))
+            var = r['Variable'].strip()
+            is_header = r['panel_header'].strip() == 'True'
+
+            if is_header and 'Panel B' in var:
                 continue
+            if is_header and 'Panel C' in var:
+                rows_data.append(("PANEL", "Panel B: Post-Treatment Outcomes (2019)"))
+                continue
+            if is_header:
+                rows_data.append(("PANEL", var))
+                continue
+            if var in skip_vars:
+                continue
+
             try:
                 t_mean = float(r['T_mean']); t_sd = float(r['T_sd'])
                 c_mean = float(r['C_mean']); c_sd = float(r['C_sd'])
@@ -178,7 +188,7 @@ def build_table1(doc):
                 p_str  = f"{pval:.3f}" if pval else "—"
             except Exception:
                 t_str = c_str = d_str = p_str = "—"
-            rows_data.append((r['Variable'], t_str, c_str, d_str, p_str))
+            rows_data.append((var, t_str, c_str, d_str, p_str))
 
     tbl = doc.add_table(rows=1, cols=5)
     tbl.style = 'Table Grid'
@@ -197,23 +207,23 @@ def build_table1(doc):
             for i, val in enumerate(row[1:], 1):
                 add_cell(tr[i], val, align=WD_ALIGN_PARAGRAPH.CENTER)
 
-    note(doc, "Notes: Treated counties experienced a wildfire ≥1,000 acres in 2015 (N=81). Control counties had no qualifying wildfire 2015–2019 (N=12). Standard deviations in parentheses. Panel B rates are means over non-suppressed CDC WONDER cells (2011–2014). Panel C outcomes from CDC PLACES 2019. *** p<0.01, ** p<0.05, * p<0.10.")
+    note(doc, "Notes: Treated counties experienced a wildfire ≥1,000 acres in 2015 (N=81). Control counties had no qualifying wildfire 2015–2019 (N=12). Standard deviations in parentheses. Panel B outcomes from CDC PLACES 2019. *** p<0.01, ** p<0.05, * p<0.10.")
 
 
 def build_table2(doc):
     heading(doc, "Table 2. Treatment Effects on Depression Prevalence and Poor Mental Health Days: 2019", sb=6)
     rows = [
-        ("Panel A: Depression Prevalence (%)", "", "", "", ""),
-        ("Treated (binary)", "2.758***\n(0.944)", "—", "0.546\n(0.784)", "1.350\n(1.148)"),
-        ("Log % land burned (dose-response)", "—", "1.180*\n(0.496)", "—", "—"),
-        ("N (treated counties)", "79", "79", "41", "16"),
-        ("Panel B: Poor Mental Health Days (%)", "", "", "", ""),
-        ("Treated (binary)", "1.634**\n(0.505)", "—", "0.269\n(0.355)", "0.580\n(0.410)"),
-        ("Log % land burned (dose-response)", "—", "0.198\n(0.269)", "—", "—"),
-        ("N (treated counties)", "79", "79", "41", "16"),
+        ("Panel A: Depression Prevalence (%)", "", ""),
+        ("Treated (binary)", "2.758***\n(0.944)", "—"),
+        ("Log % land burned (dose-response)", "—", "1.180*\n(0.496)"),
+        ("N (treated counties)", "79", "79"),
+        ("Panel B: Poor Mental Health Days (%)", "", ""),
+        ("Treated (binary)", "1.634**\n(0.505)", "—"),
+        ("Log % land burned (dose-response)", "—", "0.198\n(0.269)"),
+        ("N (treated counties)", "79", "79"),
     ]
-    col_hdrs = ["", "T1 ≥1,000 ac\nBinary (1)", "T1 ≥1,000 ac\nDose-Resp. (2)", "T2 ≥5,000 ac\nBinary (3)", "T3 ≥25,000 ac\nBinary (4)"]
-    tbl = doc.add_table(rows=1, cols=5)
+    col_hdrs = ["", "T1 ≥1,000 ac\nBinary (1)", "T1 ≥1,000 ac\nDose-Resp. (2)"]
+    tbl = doc.add_table(rows=1, cols=3)
     tbl.style = 'Table Grid'
     hdr = tbl.rows[0].cells
     for i, h in enumerate(col_hdrs):
@@ -224,7 +234,7 @@ def build_table2(doc):
         add_cell(tr[0], row[0], bold=is_panel)
         for i, val in enumerate(row[1:], 1):
             add_cell(tr[i], val, align=WD_ALIGN_PARAGRAPH.CENTER)
-    note(doc, "Notes: Outcome is 2019 CDC PLACES county-level prevalence. Columns (1)/(3)/(4): OLS with binary treatment indicator. Column (2): OLS with log(1 + PctBurned) among T1 treated counties. Controls: 2011–2014 means of IHS suicide rate, IHS overdose rate, unemployment rate; 2013 RUCC score. Heteroskedasticity-robust SEs in parentheses. *** p<0.01, ** p<0.05, * p<0.10.")
+    note(doc, "Notes: Outcome is 2019 CDC PLACES county-level prevalence. Column (1): OLS with binary T1 treatment indicator. Column (2): OLS with log(1 + PctBurned) among T1 treated counties. Controls: 2011–2014 mean unemployment rate; 2013 RUCC score. Heteroskedasticity-robust SEs in parentheses. *** p<0.01, ** p<0.05, * p<0.10.")
 
 
 def build_table3(doc):
@@ -369,25 +379,11 @@ FIG_CAPTIONS = {
           "(T1, ≥1,000 acres). Treated counties experienced a qualifying 2015 wildfire. "
           "Controls matched within WHP quintiles via Mahalanobis distance. Near-identical "
           "distributions confirm common support across all matching dimensions."),
-    "2": ("Treatment Effects on Depression Prevalence and Poor Mental Health Days: "
-          "Cross-Sectional DiD by Fire-Size Threshold (2019). Each estimate shows the "
-          "matched DiD coefficient with 95% confidence interval. Panel A: depression "
-          "prevalence (%). Panel B: poor mental health days (%). Filled circles = binary "
-          "treatment; open diamonds = log burn intensity dose-response (T1 only). "
-          "*** p<0.01, ** p<0.05, * p<0.10."),
-    "3": ("Baseline Event-Study Coefficients: TWFE Estimates of Wildfire Effects on "
-          "Suicide and Overdose Mortality (2015 Cohort). Left panel = IHS suicide rate; "
-          "right panel = IHS overdose rate. Each panel overlays T1 (red), T2 (blue), and "
-          "T3 (green) estimates with 95% confidence intervals. Reference year k = −1 "
-          "(2014) normalized to zero. SEs clustered by county."),
-    "4": ("Event-Study Coefficients: Wildfire Effects on Suicide and Overdose Mortality, "
-          "by Fire-Size Threshold. TWFE event-study coefficients with 95% confidence "
-          "intervals. Reference year k = −1 (2014) normalized to zero. Shaded region = "
-          "pre-treatment window. SEs clustered by county."),
-    "5": ("Rurality Heterogeneity: Event-Study Coefficients by Metro / Non-Metro "
-          "Classification (T1, ≥1,000 acres). Estimated separately within metropolitan "
-          "(RUCC 1–3) and non-metropolitan (RUCC 4–9) county subgroups. * p<0.05 at "
-          "k = +4 (non-metropolitan suicide). SEs clustered by county."),
+    "2": ("Treatment Effects on Depression Prevalence and Poor Mental Health Days (2019). "
+          "T1 binary treatment estimate (filled circle) and dose-response estimate "
+          "(open diamond) with 95% confidence intervals. Panel A: depression prevalence (%). "
+          "Panel B: poor mental health days (%). *** p<0.01, ** p<0.05, * p<0.10. "
+          "Heteroskedasticity-robust SEs."),
 }
 
 # ── Main manuscript builder ───────────────────────────────────────────────────
@@ -417,12 +413,9 @@ def make_manuscript():
                    "days 1.63 percentage points higher (SE = 0.51, p = 0.002). A dose-response "
                    "specification replacing the binary treatment indicator with log burn intensity "
                    "yields a coefficient of 1.18 per log-unit (p = 0.020), inconsistent with "
-                   "selection confounding. Suicide and overdose mortality estimates are "
-                   "consistently positive but imprecise, reflecting widespread CDC WONDER cell "
-                   "suppression in small Western counties. Non-metropolitan counties drive the "
-                   "mortality signal: the four-year suicide event-study coefficient is "
-                   "significant among rural counties (p = 0.038), consistent with mental health "
-                   "provider access as the operative mechanism."))
+                   "selection confounding. This monotone relationship between burn severity and "
+                   "subsequent depression is the primary evidence against a pure selection "
+                   "interpretation of the treatment effect."))
     add_para(doc, "Keywords: wildfire, mental health, depression, difference-in-differences, "
              "rural health, natural disaster", italic=True, sa=12)
 
@@ -438,9 +431,6 @@ def make_manuscript():
     TABLE_TRIGGERS = {
         "Table 1.": build_table1,
         "Table 2.": build_table2,
-        "Table 3.": build_table3,
-        "Table 4.": build_table4,
-        "Table 5.": build_table5,
     }
 
     i = 0
@@ -466,13 +456,10 @@ def make_manuscript():
 
         # Figure placeholder lines
         if line.startswith("[Figure") or line.startswith("Figure 1 ") or \
-           line.startswith("Figure 2 ") or line.startswith("Figure 3 ") or \
-           line.startswith("Figure 4 ") or line.startswith("Figure 5 "):
+           line.startswith("Figure 2 "):
             # Detect which figure
-            for num in ["1","2","3","4","5"]:
+            for num in ["1","2"]:
                 if f"Figure {num}" in line and line.startswith("Figure"):
-                    # This is a "Figure N about here" placeholder or figure caption header
-                    # We'll insert full figure with caption here
                     insert_figure(doc, num, FIG_CAPTIONS[num])
                     break
             i += 1
