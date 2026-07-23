@@ -74,6 +74,89 @@ def page_break(doc):
 def note(doc, text):
     add_para(doc, text, italic=True, sa=6, size=10)
 
+def render_equation(doc, parts, label=""):
+    """Render an equation as a centered paragraph.
+    parts: list of (text, italic, superscript, subscript)
+    """
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pf = p.paragraph_format
+    pf.line_spacing  = 1.15
+    pf.space_before  = Pt(8)
+    pf.space_after   = Pt(8)
+    for text, italic, superscript, subscript in parts:
+        run = p.add_run(text)
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(12)
+        run.italic = italic
+        if superscript:
+            run.font.superscript = True
+        if subscript:
+            run.font.subscript = True
+    if label:
+        run = p.add_run(f"    {label}")
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(12)
+    return p
+
+
+# Equations in document order: (parts_list, label)
+# Each part: (text, italic, superscript, subscript)
+EQUATIONS = [
+    # (1) Section 2: PctBurned_c = (Acres burned in county c, 2015) / (Land area of county c)
+    ([("PctBurned", True,  False, False),
+      ("c",          True,  False, True),
+      ("  =  (Acres burned in county ", False, False, False),
+      ("c",          True,  False, False),
+      (", 2015)  ÷  (Land area of county ", False, False, False),
+      ("c",          True,  False, False),
+      ("  in acres)", False, False, False)],
+     "(1)"),
+
+    # (1) Section 3: d(t,c) = sqrt[(x_t - x_c)^T (Sigma-hat + lambda*I)^{-1} (x_t - x_c)]
+    ([("d",    True,  False, False),
+      ("(t, c)  =  √[ (x", False, False, False),
+      ("t",   True,  False, True),
+      ("  −  x", False, False, False),
+      ("c",   True,  False, True),
+      (")",   False, False, False),
+      ("T",   False, True,  False),
+      ("  (Σ̂ + λI)", False, False, False),
+      ("⁻¹", False, False, False),
+      ("  (x", False, False, False),
+      ("t",   True,  False, True),
+      ("  −  x", False, False, False),
+      ("c",   True,  False, True),
+      (") ]", False, False, False)],
+     "(1)"),
+
+    # (2) Section 4.1: D_c^{2019} = alpha + beta * Treated_c + x_c' * gamma + epsilon_c
+    ([("D",         True,  False, False),
+      ("c",         True,  False, True),
+      ("2019",      False, True,  False),
+      ("  =  α  +  β · Treated", False, False, False),
+      ("c",         True,  False, True),
+      ("  +  x",    False, False, False),
+      ("c",         True,  False, True),
+      ("′γ  +  ε", False, False, False),
+      ("c",         True,  False, True)],
+     "(2)"),
+
+    # (3) Section 4.2: D_c^{2019} = alpha + beta_D * log(1 + PctBurned_c) + x_c' * gamma + epsilon_c
+    ([("D",          True,  False, False),
+      ("c",          True,  False, True),
+      ("2019",       False, True,  False),
+      ("  =  α  +  β", False, False, False),
+      ("D",          True,  False, True),
+      (" · log(1 + PctBurned", False, False, False),
+      ("c",          True,  False, True),
+      (")  +  x",    False, False, False),
+      ("c",          True,  False, True),
+      ("′γ  +  ε", False, False, False),
+      ("c",          True,  False, True)],
+     "(3)"),
+]
+
 def works_cited_entry(doc, text):
     add_para(doc, text, first_indent=-0.5, left_indent=0.5, sa=6)
 
@@ -135,7 +218,7 @@ def insert_figure(doc, num, caption):
         p.paragraph_format.space_before = Pt(12)
         p.paragraph_format.space_after  = Pt(4)
         run = p.add_run()
-        run.add_picture(path, width=Inches(5.5))
+        run.add_picture(path, width=Inches(4.5))
     else:
         add_para(doc, f"[Figure {num} — file not found: {FIG_MAP.get(num)}]",
                  align=WD_ALIGN_PARAGRAPH.CENTER, italic=True)
@@ -433,6 +516,8 @@ def make_manuscript():
         "Table 2.": build_table2,
     }
 
+    _eq_idx = [0]   # mutable counter for EQUATIONS list
+
     i = 0
     while i < len(lines):
         if i in skip_set:
@@ -454,22 +539,18 @@ def make_manuscript():
                 i += 1
             continue
 
-        # Figure placeholder lines
-        if line.startswith("[Figure") or line.startswith("Figure 1 ") or \
-           line.startswith("Figure 2 "):
-            # Detect which figure
-            for num in ["1","2"]:
-                if f"Figure {num}" in line and line.startswith("Figure"):
+        # Inline figure placeholders: "[Figure 1 about here]", "[Figure 2 about here]"
+        if line.startswith("[Figure"):
+            for num in ["1", "2"]:
+                if f"Figure {num}" in line:
                     insert_figure(doc, num, FIG_CAPTIONS[num])
                     break
             i += 1
             continue
 
-        # "Figures" section heading (just the word "Figures" on its own)
+        # "Figures" section heading — figures already inserted inline; skip all remaining content
         if line == "Figures":
-            # Already handled inline — skip
-            i += 1
-            continue
+            break
 
         # Table title lines — insert actual table
         triggered = False
@@ -507,10 +588,15 @@ def make_manuscript():
             i += 1
             continue
 
-        # Equation lines like "(1)", "(2)", "(3)", "(4)", "(5)"
+        # Equation lines like "(1)", "(2)", "(3)"
         if re.match(r'^\(\d\)$', line):
-            add_para(doc, f"[ Equation {line[1]} ]",
-                     align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, sb=4, sa=4)
+            if _eq_idx[0] < len(EQUATIONS):
+                parts, lbl = EQUATIONS[_eq_idx[0]]
+                render_equation(doc, parts, lbl)
+                _eq_idx[0] += 1
+            else:
+                add_para(doc, f"[ Equation {line[1]} ]",
+                         align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, sb=4, sa=4)
             i += 1
             continue
 
